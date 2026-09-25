@@ -1,0 +1,11 @@
+name: Bisect minimal
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  call-minimal:
+    uses: BabuBahir/nopcommerce-plugin-packager/.github/workflows/pack-minimal.yml@v1.2.0
+    with:
+      nopcommerce-release: release-4.90.8

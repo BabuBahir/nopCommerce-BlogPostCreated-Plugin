@@ -1,0 +1,9 @@
+name: Bisect full
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  call-full:
+    uses: BabuBahir/nopcommerce-plugin-packager/.github/workflows/pack-plugin.yml@v1.1.0
