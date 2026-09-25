@@ -38,15 +38,23 @@ $excludeDirs = @('obj', 'bin', '.vs', '.git', 'PublishProfiles')
 $excludeExts = @('.user', '.pubxml')
 
 $files = Get-ChildItem -LiteralPath $source -Recurse -File -Force | Where-Object {
-    $_.FullName -notmatch '\\(obj|bin|\.vs|\.git|PublishProfiles)\\' -and
-    $_.Extension -notin $excludeExts
+    # segment based so it works for both '\' and '/' separated paths
+    $relative = $_.FullName.Substring($source.Length).TrimStart('\', '/')
+    $segments = @(($relative -replace '\\', '/').Split('/') | Where-Object { $_ })
+    -not ($segments | Where-Object { $excludeDirs -contains $_ }) -and
+    -not ($excludeExts -contains $_.Extension)
+}
+
+function Get-RelativeSegments {
+    param([string]$Root, [string]$FullName)
+    @(($FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/').Split('/') | Where-Object { $_ })
 }
 
 $changed = New-Object System.Collections.Generic.List[string]
 $missing = New-Object System.Collections.Generic.List[string]
 
 foreach ($file in $files) {
-    $relative = $file.FullName.Substring($source.Length).TrimStart('\')
+    $relative = $file.FullName.Substring($source.Length).TrimStart('\', '/')
     $target = Join-Path $destination $relative
     $state = if (-not (Test-Path -LiteralPath $target)) { 'new' }
              elseif ((Get-FileHash -LiteralPath $file.FullName -Algorithm MD5).Hash -ne
@@ -65,8 +73,10 @@ foreach ($file in $files) {
 
 # files that live only in the repo copy
 foreach ($file in (Get-ChildItem -LiteralPath $destination -Recurse -File -Force | Where-Object {
-    $_.FullName -notmatch '\\(obj|bin|\.vs|\.git)\\' })) {
-    $relative = $file.FullName.Substring($destination.Length).TrimStart('\')
+    $relative = $_.FullName.Substring($destination.Length).TrimStart('\', '/')
+    $segments = @(($relative -replace '\\', '/').Split('/') | Where-Object { $_ })
+    -not ($segments | Where-Object { $excludeDirs -contains $_ })
+})) {    $relative = $file.FullName.Substring($destination.Length).TrimStart('\', '/')
     if (-not (Test-Path -LiteralPath (Join-Path $source $relative))) { $missing.Add($relative) }
 }
 

@@ -108,6 +108,18 @@ function New-Entry {
         $stream.Write($bytes, 0, $bytes.Length)
     }
     finally { $stream.Dispose() }
+    # counted here so the reported number is always what actually landed in the archive
+    $script:entriesWritten++
+    $script:fileCount++
+}
+
+function Test-ExcludedPath {
+    # separator agnostic: works for both 'a\obj\b' and 'a/obj/b'
+    param([string]$Root, [string]$FullName)
+    foreach ($segment in @(Get-RelativeSegments -Root $Root -FullName $FullName)) {
+        if ($excludeDirs -contains $segment) { return $true }
+    }
+    return ($excludeExts -contains [System.IO.Path]::GetExtension($FullName))
 }
 
 function Add-Tree {
@@ -118,12 +130,12 @@ function Add-Tree {
         $segments = Get-RelativeSegments -Root $OnDiskRoot -FullName $dir.FullName
         if ($segments | Where-Object { $excludeDirs -contains $_ }) { continue }
         [void]$Archive.CreateEntry("$ZipPrefix/$($segments -join '/')/")
+        $script:entriesWritten++
     }
 
     foreach ($file in (Get-ChildItem -LiteralPath $OnDiskRoot -Recurse -File -Force | Sort-Object FullName)) {
+        if (Test-ExcludedPath -Root $OnDiskRoot -FullName $file.FullName) { continue }
         $segments = Get-RelativeSegments -Root $OnDiskRoot -FullName $file.FullName
-        if ($segments | Where-Object { $excludeDirs -contains $_ }) { continue }
-        if ($excludeExts -contains $file.Extension) { continue }
         New-Entry -Archive $Archive -EntryName "$ZipPrefix/$($segments -join '/')" -SourceFile $file.FullName
     }
 }
@@ -132,7 +144,10 @@ Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $entryCount = 0
+$fileCount  = 0
 $pluginJson = $null
+$script:entriesWritten = 0
+$script:fileCount = 0
 
 if (-not $VerifyOnly) {
     # ------------------------------------------------------------ 1. build ----
@@ -168,7 +183,7 @@ if (-not $VerifyOnly) {
 
     $refAssemblies = foreach ($root in $refSearchRoots) {
         Get-ChildItem -LiteralPath $root -Recurse -Filter "$pluginAssemblyName.dll" -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.DirectoryName -match '\\(ref|refint|bin)$' }
+        Where-Object { $_.Directory.Name -in @('ref', 'refint', 'bin') }
     }
     $assemblyHash = (Get-FileHash -LiteralPath $builtAssembly -Algorithm MD5).Hash
     foreach ($ref in $refAssemblies) {
@@ -220,33 +235,32 @@ if (-not $VerifyOnly) {
     if (Test-Path -LiteralPath $OutputZip) { Remove-Item -LiteralPath $OutputZip -Force }
 
     Write-Step "Writing $OutputZip"
+    $script:entriesWritten = 0
+    $script:fileCount = 0
     $archive = [System.IO.Compression.ZipFile]::Open($OutputZip, [System.IO.Compression.ZipArchiveMode]::Create)
     try {
         # binaries, staged from the whitelist so referenced-project output can never ship
         foreach ($file in $payload) {
             $segments = Get-RelativeSegments -Root $buildOutput -FullName $file.FullName
             New-Entry -Archive $archive -EntryName "$binaryZipDir/$($segments -join '/')" -SourceFile $file.FullName
-            $entryCount++
         }
-        Write-Ok "binaries: $entryCount entries"
+        Write-Ok "binaries: $script:fileCount files"
 
         # source, as shipped to the nopCommerce marketplace
+        $beforeFiles = $script:fileCount
         Add-Tree -Archive $archive -OnDiskRoot $projectRoot -ZipPrefix $sourceZipDir
-        $entryCount += (Get-ChildItem -LiteralPath $projectRoot -Recurse -File -Force |
-                        Where-Object { $_.FullName -notmatch '\\(obj|bin|\.vs|\.git|PublishProfiles)\\' -and
-                                       $_.Extension -notin $excludeExts }).Count
-        Write-Ok "source: $($entryCount) entries so far"
+        Write-Ok "source: $($script:fileCount - $beforeFiles) files"
 
         # root files
         foreach ($name in @('Readme.txt', 'uploadedItems.json')) {
             $path = Join-Path $repoRoot $name
             if (-not (Test-Path -LiteralPath $path)) { Fail "missing $path" }
             New-Entry -Archive $archive -EntryName $name -SourceFile $path
-            $entryCount++
         }
     }
     finally { $archive.Dispose() }
-    Write-Ok "$entryCount entries written"
+    $entryCount = $script:entriesWritten
+    Write-Ok "$entryCount entries written ($fileCount files + $($entryCount - $fileCount) directories)"
 }
 
 # ---------------------------------------------------------- 6. verify it ----
