@@ -1,0 +1,33 @@
+name: Release plugin
+
+on:
+  workflow_run:
+    workflows: ["Package plugin"]
+    types:
+      - completed
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: $(github.event.workflow_run.conclusion == 'success')
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: plugin-package-*
+          merge-multiple: true
+          path: release-artifacts
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Plugin Package
+          files: |
+            release-artifacts/plugin-package.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
