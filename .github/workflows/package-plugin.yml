@@ -10,6 +10,6 @@ jobs:
   package:
     # Pinned to a tag: a change in the packager must not silently change the contents of
     # this repository's release artifacts.
-    uses: BabuBahir/nopcommerce-plugin-packager/.github/workflows/pack-plugin.yml@v1.2.0
+    uses: BabuBahir/nopcommerce-plugin-packager/.github/workflows/pack-plugin.yml@v1.2.1
     with:
       nopcommerce-release: release-4.90.8
