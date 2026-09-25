@@ -4,3 +4,5 @@ obj/
 *.user
 *.pubxml
 *.zip
+config.bat
+node_modules
