@@ -8,61 +8,8 @@ on:
 
 jobs:
   package:
-    name: Build and package Misc.BlogPostCreated
-    runs-on: ubuntu-latest
-
-    env:
-      NOPCOMMERCE_VERSION: '4.90'
-      NOPCOMMERCE_RELEASE: 'release-4.90.8'
-
-    steps:
-      - name: Checkout plugin
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        # nopCommerce's global.json pins 9.0.100 with rollForward: latestFeature
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Checkout nopCommerce source
-        # nopCommerce is only a build dependency: the plugin csproj has a ProjectReference
-        # to Nop.Web.csproj. A plain anonymous clone of the public release tag avoids
-        # cross-repo GITHUB_TOKEN restrictions.
-        run: |
-          git clone --depth 1 --branch "$NOPCOMMERCE_RELEASE" \
-            https://github.com/nopSolutions/nopCommerce.git nopCommerce
-
-      - name: Report nopCommerce version
-        run: |
-          grep -E 'CURRENT_VERSION|MINOR_VERSION' nopCommerce/src/Libraries/Nop.Core/NopVersion.cs
-          echo "Nop.Web.csproj present: $(test -f nopCommerce/src/Presentation/Nop.Web/Nop.Web.csproj && echo yes || echo no)"
-
-      - name: Build and package
-        shell: pwsh
-        run: |
-          ./build/Build-PluginPackage.ps1 `
-            -NopCommerceSrc "${{ github.workspace }}/nopCommerce" `
-            -NopCommerceVersion $env:NOPCOMMERCE_VERSION `
-            -Configuration Release `
-            -OutputZip "${{ github.workspace }}/out/Plugin.BlogNotifier.zip" `
-            | Tee-Object -FilePath build-output.txt
-
-      - name: Show package contents
-        run: |
-          cd out
-          # entry names must use forward slashes, so unzip -l output has to be clean
-          unzip -l Plugin.BlogNotifier.zip
-          if unzip -Z1 Plugin.BlogNotifier.zip | grep -q '\\'; then
-            echo "::error::archive contains backslash entry names, nopCommerce will report 0 plugins"
-            exit 1
-          fi
-          cat ../build-output.txt
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Plugin.BlogNotifier-${{ env.NOPCOMMERCE_VERSION }}
-          path: out/Plugin.BlogNotifier.zip
-          if-no-files-found: error
-          retention-days: 30
+    # Pinned to a tag: a change in the packager must not silently change the contents of
+    # this repository's release artifacts.
+    uses: BabuBahir/nopcommerce-plugin-packager/.github/workflows/pack-plugin.yml@v1
+    with:
+      nopcommerce-release: release-4.90.8
