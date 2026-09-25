@@ -1,0 +1,16 @@
+# keep line endings stable: the GitHub Actions runner checks out LF on Linux
+* text=auto eol=lf
+
+*.cs text
+*.csproj text
+*.cshtml text
+*.json text
+*.md text
+*.ps1 text
+*.txt text
+*.yml text
+
+*.dll binary
+*.pdb binary
+*.png binary
+*.zip binary

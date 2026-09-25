@@ -1,0 +1,9 @@
+﻿[
+   {
+    "Type": "Plugin",
+    "SupportedVersion": "4.90",
+    "DirectoryPath": "BlogPostCreated/nopCommerce-4.90/Misc.BlogPostCreated/",
+    "SystemName": "Misc.BlogPostCreated",
+    "SourceDirectoryPath": "BlogPostCreated/nopCommerce-4.90/Nop.Plugin.Misc.BlogPostCreated/"
+  }
+]

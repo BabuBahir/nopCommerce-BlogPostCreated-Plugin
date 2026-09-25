@@ -1,0 +1,24 @@
+@model Nop.Plugin.Misc.BlogPostCreated.Models.BlogPostCreatedPopupModel
+@using System.Text.Json
+<script asp-location="Footer">
+    $(function () {
+        var container = document.getElementById('dialog-notifications-success');
+        if (!container)
+            return;
+
+        var message = document.createElement('p');
+        message.appendChild(document.createTextNode('A new blog post is available: '));
+
+        var link = document.createElement('a');
+        link.href = @Html.Raw(JsonSerializer.Serialize(Model.Url));
+        link.text = @Html.Raw(JsonSerializer.Serialize(Model.Title));
+        message.appendChild(link);
+
+        container.innerHTML = '';
+        container.appendChild(message);
+        $(container).dialog({
+            modal: true,
+            width: 350
+        });
+    });
+</script>
