@@ -13,3 +13,29 @@ jobs:
     uses: BabuBahir/nopcommerce-plugin-packager/.github/workflows/pack-plugin.yml@v1.1.0
     with:
       nopcommerce-release: release-4.90.8
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          # The reusable workflow names artifact 'plugin-package-<system-name>'
+          # We use a glob pattern to find it since system-name is dynamic
+          pattern: plugin-package-*
+          merge-multiple: true
+          path: release-artifacts
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Plugin Package
+          files: |
+            release-artifacts/plugin-package.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
